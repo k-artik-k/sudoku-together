@@ -7,7 +7,7 @@
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='10' fill='%23f5efe0'/%3E%3Cline x1='21.3' y1='4' x2='21.3' y2='60' stroke='%23bfae8e' stroke-width='1.5'/%3E%3Cline x1='42.7' y1='4' x2='42.7' y2='60' stroke='%23bfae8e' stroke-width='1.5'/%3E%3Cline x1='4' y1='21.3' x2='60' y2='21.3' stroke='%23bfae8e' stroke-width='1.5'/%3E%3Cline x1='4' y1='42.7' x2='60' y2='42.7' stroke='%23bfae8e' stroke-width='1.5'/%3E%3Ctext x='12' y='18' font-family='Georgia,serif' font-size='14' fill='%234a3f2f'%3E9%3C/text%3E%3Ctext x='33' y='38' font-family='Georgia,serif' font-size='14' fill='%234a3f2f'%3E5%3C/text%3E%3Ctext x='46' y='58' font-family='Georgia,serif' font-size='14' fill='%234a3f2f'%3E1%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Lora:wght@400;600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Architects+Daughter&family=Lora:wght@400;600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
   --bs:min(100vw - 20px,480px);
@@ -102,8 +102,8 @@ input:focus,select:focus{outline:none;border-color:var(--ac)}
 }
 .c{
   display:flex;align-items:center;justify-content:center;
-  font-family:'Lora',Georgia,serif;
-  font-size:calc(var(--bs)/9*.52);
+  font-family:'Architects Daughter','Segoe Print',cursive;
+  font-size:calc(var(--bs)/9*.58);
   border:0 solid var(--ln);border-width:0 1px 1px 0;
   cursor:pointer;min-width:0;
   transition:background .15s;
@@ -113,15 +113,15 @@ input:focus,select:focus{outline:none;border-color:var(--ac)}
 .c.b{border-bottom:2.5px solid var(--ln2)}
 .c:nth-child(9n){border-right:0}
 .c:nth-child(n+73){border-bottom:0}
-.c.g{font-weight:700;color:var(--pencil)}
+.c.g{font-family:'Lora',Georgia,serif;font-size:calc(var(--bs)/9*.52);font-weight:700;color:var(--pencil)}
 .c.pe{background:var(--peer)}.c.sm{background:var(--same)}.c.sel{background:var(--sel)}
 .c.bad{color:var(--bad)!important;background:var(--badbg)}
 .n{
   display:grid;grid:repeat(3,1fr)/repeat(3,1fr);
   width:100%;height:100%;
-  font-family:'Source Sans 3',sans-serif;
-  font-size:calc(var(--bs)/9*.2);
-  color:var(--pencil2);font-weight:600;
+  font-family:'Architects Daughter','Segoe Print',cursive;
+  font-size:calc(var(--bs)/9*.23);
+  color:var(--pencil2);font-weight:400;
   text-align:center;align-items:center;
 }
 
@@ -150,9 +150,9 @@ input:focus,select:focus{outline:none;border-color:var(--ac)}
 #pad{display:grid;grid-template-columns:repeat(9,1fr);gap:5px}
 #pad button{
   height:calc(var(--bs)/9*1.25);padding:0;
-  font-family:'Lora',Georgia,serif;
-  font-size:calc(var(--bs)/9*.55);
-  color:var(--ac2);
+  font-family:'Architects Daughter','Segoe Print',cursive;
+  font-size:calc(var(--bs)/9*.62);
+  color:inherit;
   border:1.5px solid var(--ln);
   box-shadow:none;
 }
@@ -181,12 +181,12 @@ input:focus,select:focus{outline:none;border-color:var(--ac)}
 .bot-row button{font-size:14px}
 
 @media(min-width:860px){
-  :root{--bs:min(100vh - 120px,560px)}
-  #g{width:auto;grid-template-columns:var(--bs) 280px;justify-content:center;gap:10px 28px;align-content:start}
+  :root{--bs:min(100vh - 120px,560px,100vw - 400px)}
+  #g{width:auto;grid-template-columns:var(--bs) 340px;justify-content:center;gap:10px 28px;align-content:start}
   #g>:not(#board){grid-column:2}
   #board{grid-column:1;grid-row:1/8}
   #pad{grid-template-columns:repeat(3,1fr)}
-  #pad button{height:60px;font-size:28px}
+  #pad button{height:60px;font-size:36px}
 }
 .th{display:grid;place-items:center;padding:8px 10px}
 .th svg{width:18px;height:18px}
@@ -337,7 +337,7 @@ function draw(){
   });
   document.querySelectorAll('#pad button').forEach(b=>b.classList.toggle('x',cnt[b.dataset.d]>=9));
   $('#pl').innerHTML=S.players.map(p=>'<span class="chip'+(p.on?'':' off')+'"><i style="background:'+COL[p.slot]+'"></i>'+esc(p.name)+(p.slot==you?' (you)':'')+'</span>').join('')+'<span class="chip off">open: '+(S.max-S.players.length)+'</span>';
-  $('#code').textContent=S.code;$('#diff').textContent=S.diff;
+  $('#code').textContent=S.code;$('#diff').textContent=S.diff;$('#pad').style.color=COL[you];
   $('#done').hidden=!S.done;
   if(S.done){$('#done').textContent='Solved in '+fmt(S.done-S.t0)+'!';bd.classList.add('celebrate')}
   else bd.classList.remove('celebrate');
