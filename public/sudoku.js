@@ -30,15 +30,23 @@ export function solve(g, limit, rnd) {
 }
 
 export function generate(diff) {
-  const sol = Array(81).fill(0);
-  shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9]).forEach((v, i) => sol[i] = v);
-  solve(sol, 1, true);
-  const p = sol.slice(); let clues = 81;
-  for (const i of shuffle([...Array(41).keys()])) {   // remove cells in 180-degree symmetric pairs
-    if (clues <= CLUES[diff]) break;
-    const j = 80 - i, a = p[i], b = p[j];
-    p[i] = p[j] = 0;
-    if (solve(p.slice(), 2) === 1) clues -= i === j ? 1 : 2; else { p[i] = a; p[j] = b; }
+  const target = CLUES[diff] || CLUES.easy;
+  let best = null;
+  // Randomized greedy removal can get stuck above the requested clue count.
+  // Retry with a new solution/order so the label always matches the puzzle.
+  for (let attempt = 0; attempt < 12; attempt++) {
+    const sol = Array(81).fill(0);
+    shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9]).forEach((v, i) => sol[i] = v);
+    solve(sol, 1, true);
+    const p = sol.slice(); let clues = 81;
+    for (const i of shuffle([...Array(81).keys()])) {
+      if (clues <= target) break;
+      const value = p[i];
+      p[i] = 0;
+      if (solve(p.slice(), 2) === 1) clues--; else p[i] = value;
+    }
+    if (!best || clues < best.clues) best = { puzzle: p, solution: sol, clues };
+    if (clues === target) return { puzzle: p, solution: sol };
   }
-  return { puzzle: p, solution: sol };
+  return best;
 }
