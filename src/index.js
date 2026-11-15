@@ -14,8 +14,9 @@ export default {
 
 const DAY = 864e5;
 const okPuzzle = p => Array.isArray(p) && p.length === 81 && p.every(v => Number.isInteger(v) && v >= 0 && v <= 9);
+const clueCount = p => p.reduce((n, v) => n + (v ? 1 : 0), 0);
 const solved = p => { if (!okPuzzle(p)) return null; const s = p.slice(); return solve(s, 1, false) === 1 ? s : null; };
-const fresh = (diff, puzzle, solution) => ({ puzzle, solution, values: puzzle.slice(), owners: Array(81).fill(-1), diff, gid: crypto.randomUUID(), t0: Date.now(), done: 0 });
+const fresh = (diff, puzzle, solution) => ({ puzzle, solution, values: puzzle.slice(), owners: Array(81).fill(-1), diff, gid: crypto.randomUUID(), t0: Date.now(), done: 0, endReason: '' });
 
 export class Room extends DurableObject {
   socks = new Map();   // player id -> live websocket
@@ -37,10 +38,13 @@ export class Room extends DurableObject {
   snap(you) {
     const r = this.r;
     return JSON.stringify({
-      t: 's', you, code: r.code, max: r.max, diff: r.diff, gid: r.gid, puzzle: r.puzzle, values: r.values, owners: r.owners,
+      t: 's', you, code: r.code, max: r.max, diff: r.diff, gid: r.gid, puzzle: r.puzzle, values: r.values, owners: r.owners, solution: r.solution,
       wrong: r.values.map((v, i) => v && !r.puzzle[i] && v !== r.solution[i] ? i : -1).filter(i => i >= 0),
-      players: r.players.map(p => ({ slot: p.slot, name: p.name, on: this.socks.has(p.id), sel: p.sel })),
-      t0: r.t0, done: r.done, now: Date.now(),
+      players: r.players.map(p => ({
+        id: p.id, slot: p.slot, name: p.name, on: this.socks.has(p.id), sel: p.sel,
+        errors: p.errors || 0, inVoice: !!p.inVoice, muted: !!p.muted
+      })),
+      t0: r.t0, done: r.done, endReason: r.endReason, now: Date.now(),
     });
   }
   bc() { for (const p of this.r.players) { const w = this.socks.get(p.id); if (w) try { w.send(this.snap(p.slot)); } catch {} } }
@@ -55,9 +59,11 @@ export class Room extends DurableObject {
 
       if (m.t === 'create') {
         if (r) return say({ t: 'e', m: 'taken', taken: 1 });   // code collision: client retries with a new one
+        const diff = CLUES[m.diff] ? m.diff : 'easy';
+        if (!okPuzzle(m.puzzle) || clueCount(m.puzzle) !== CLUES[diff]) return say({ t: 'e', m: 'Puzzle does not match selected difficulty' });
         const sol = solved(m.puzzle);
         if (!sol) return say({ t: 'e', m: 'Bad puzzle' });
-        r = this.r = { ...fresh(CLUES[m.diff] ? m.diff : 'easy', m.puzzle, sol), code, max: [2, 3, 4].includes(+m.max) ? +m.max : 4, players: [] };
+        r = this.r = { ...fresh(diff, m.puzzle, sol), code, max: [2, 3, 4].includes(+m.max) ? +m.max : 4, players: [] };
         m.t = 'join';
       }
       if (m.t === 'join') {
@@ -68,7 +74,7 @@ export class Room extends DurableObject {
           if (r.players.length >= r.max) return say({ t: 'e', m: 'Room is full' });
           const slot = [0, 1, 2, 3].find(s => !r.players.some(p => p.slot === s));
           const name = String(m.name || '').replace(/[<>]/g, '').trim().slice(0, 18) || 'Player ' + (slot + 1);
-          me = { id: crypto.randomUUID(), slot, name, sel: -1 };
+          me = { id: crypto.randomUUID(), slot, name, sel: -1, errors: 0, inVoice: false, muted: false };
           r.players.push(me);
         }
         const old = this.socks.get(me.id); if (old && old !== ws) try { old.close(); } catch {}
@@ -80,28 +86,80 @@ export class Room extends DurableObject {
       if (!r || !me) return;
       const c = m.c | 0, ok = c >= 0 && c < 81;
       if (m.t === 'sel') { me.sel = ok ? c : -1; return this.bc(); }
+      else if (m.t === 'erase' && ok && !r.puzzle[c] && !r.done && r.values[c] && r.values[c] !== r.solution[c]) {
+        r.values[c] = 0; r.owners[c] = -1;
+      }
       else if (m.t === 'set' && ok && !r.puzzle[c] && !r.done) {
+        if ((me.errors || 0) >= 5) return;
         const v = m.v | 0; if (v < 0 || v > 9) return;
+        if (v && v !== r.solution[c] && v !== r.values[c]) {
+          me.errors = (me.errors || 0) + 1;
+          const active = r.players.filter(p => this.socks.has(p.id));
+          const toCheck = active.length ? active : r.players;
+          if (toCheck.length && toCheck.every(p => (p.errors || 0) >= 5)) {
+            r.done = Date.now();
+            r.endReason = 'errors';
+          }
+        }
         r.values[c] = v; r.owners[c] = v ? me.slot : -1;
       } else if (m.t === 'hint' && !r.done) {
+        if ((me.errors || 0) >= 5) return;
         const open = r.values.map((v, i) => !r.puzzle[i] && v !== r.solution[i] ? i : -1).filter(i => i >= 0);
         if (!open.length) return;
         const t = open.includes(c) ? c : open[Math.random() * open.length | 0];
         r.values[t] = r.solution[t]; r.owners[t] = me.slot;
       } else if (m.t === 'new') {
+        if (!okPuzzle(m.puzzle) || clueCount(m.puzzle) !== CLUES[r.diff]) return say({ t: 'e', m: 'Puzzle does not match room difficulty' });
         const sol = solved(m.puzzle);
         if (!sol) return say({ t: 'e', m: 'Bad puzzle' });
-        Object.assign(r, fresh(CLUES[m.diff] ? m.diff : r.diff, m.puzzle, sol));
+        Object.assign(r, fresh(r.diff, m.puzzle, sol));
+        r.players.forEach(p => { p.errors = 0; p.sel = -1; });
+      } else if (m.t === 'voice_state') {
+        me.inVoice = !!m.inVoice;
+        me.muted = !!m.muted;
+        this.save();
+        return this.bc();
+      } else if (m.t === 'signal' && m.to) {
+        const target = this.socks.get(m.to);
+        if (target && target.readyState === 1) {
+          try { target.send(JSON.stringify({ t: 'signal', from: me.id, signal: m.signal })); } catch {}
+        }
+        return;
       } else if (m.t === 'leave') {
+        if (me.inVoice) {
+          for (const p of r.players) {
+            if (p.id !== me.id) {
+              const target = this.socks.get(p.id);
+              if (target && target.readyState === 1) {
+                try { target.send(JSON.stringify({ t: 'signal', from: me.id, signal: { type: 'hangup' } })); } catch {}
+              }
+            }
+          }
+        }
         r.players = r.players.filter(p => p !== me); this.socks.delete(me.id); me = null;
         if (!r.players.length) { this.r = null; this.ctx.storage.deleteAll(); return; }
         this.save(); return this.bc();
       } else return;
-      if (!r.done && r.values.every((v, i) => v === r.solution[i])) r.done = Date.now();
+      if (!r.done && r.values.every((v, i) => v === r.solution[i])) { r.done = Date.now(); r.endReason = 'solved'; }
       this.save(); this.bc();
     });
     ws.addEventListener('close', () => {
-      if (me && this.socks.get(me.id) === ws) { this.socks.delete(me.id); me.seen = Date.now(); this.save(); this.bc(); }
+      if (me && this.socks.get(me.id) === ws) {
+        if (me.inVoice) {
+          me.inVoice = false;
+          if (this.r) {
+            for (const p of this.r.players) {
+              if (p.id !== me.id) {
+                const target = this.socks.get(p.id);
+                if (target && target.readyState === 1) {
+                  try { target.send(JSON.stringify({ t: 'signal', from: me.id, signal: { type: 'hangup' } })); } catch {}
+                }
+              }
+            }
+          }
+        }
+        this.socks.delete(me.id); me.seen = Date.now(); this.save(); this.bc();
+      }
     });
     ws.addEventListener('error', () => {});
   }
