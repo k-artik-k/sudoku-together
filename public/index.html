@@ -287,9 +287,9 @@ select option{background:var(--paper2);color:var(--ink)}
       <line x1="42.7" y1="6" x2="42.7" y2="58" stroke="#8a7a5a" stroke-width="1.2"/>
       <line x1="6" y1="21.3" x2="58" y2="21.3" stroke="#8a7a5a" stroke-width="1.2"/>
       <line x1="6" y1="42.7" x2="58" y2="42.7" stroke="#8a7a5a" stroke-width="1.2"/>
-      <text x="10" y="18" font-family="Georgia,serif" font-size="13" fill="#4a3f2f">9</text>
-      <text x="32" y="38" font-family="Georgia,serif" font-size="13" fill="#4a3f2f">5</text>
-      <text x="46" y="56" font-family="Georgia,serif" font-size="13" fill="#4a3f2f">1</text>
+      <text x="10" y="18" font-family="Georgia,serif" font-size="13" fill="#4a3f2f">5</text>
+      <text x="32" y="38" text-anchor="middle" font-family="Georgia,serif" font-size="13" fill="#4a3f2f">2</text>
+      <text x="46" y="56" font-family="Georgia,serif" font-size="13" fill="#4a3f2f">7</text>
     </svg>
     <span class="logo-text">Sudoku Together</span>
     <button class="th" aria-label="Toggle dark mode"></button>
@@ -610,8 +610,8 @@ theme(document.documentElement.dataset.theme);
 const tx=o=>ws&&ws.readyState==1&&ws.send(JSON.stringify(o));
 let pending=null,cur=null,lastCreate=null;
 const newCode=()=>Array.from({length:4},()=>'ABCDEFGHJKMNPQRSTUVWXYZ'[Math.random()*23|0]).join('');
-const drop=()=>{cur=null;if(ws){ws.onclose=null;ws.close()}};
-function start(code,first){if(ws){ws.onclose=null;ws.close()}pending=first;cur=code;conn()}
+const drop=()=>{cur=null;pending=null;if(ws){const old=ws;ws=null;old.onclose=null;old.onmessage=null;old.close()}};
+function start(code,first){if(ws){const old=ws;ws=null;old.onclose=null;old.onmessage=null;old.close()}pending=first;cur=code;conn()}
 function conn(){
   if(!cur)return;
   const w=ws=new WebSocket((location.protocol=='https:'?'wss://':'ws://')+location.host+'/ws?room='+cur);
@@ -821,7 +821,7 @@ $('#hi').onclick=()=>{
 };
 $('#nw').onclick=()=>{if(S.done||confirm('New puzzle for everyone?'))tx({t:'new',puzzle:generate(S.diff).puzzle})};
 $('#inv').onclick=()=>{const u=location.origin+'/?room='+S.code;(navigator.clipboard?navigator.clipboard.writeText(u):Promise.reject()).then(()=>$('#inv').textContent='Copied!',()=>prompt('Copy link',u));setTimeout(()=>$('#inv').textContent='Invite',1500)};
-$('#leave').onclick=()=>{if(!confirm('Leave room?'))return;leaveVoice();tx({t:'leave'});drop();sess=null;S=null;delete localStorage.sess;history.replaceState(0,'','/');showGame(0)};
+$('#leave').onclick=()=>{if(!confirm('Leave room?'))return;leaveVoice();tx({t:'leave'});drop();sess=null;S=null;$('#review-modal').hidden=true;$('#review-reopen-btn').hidden=true;$('#done').hidden=true;delete localStorage.sess;history.replaceState(0,'','/');showGame(0)};
 
 $('#vc-btn').onclick=toggleVoice;
 $('#vc-mute').onclick=toggleMute;
